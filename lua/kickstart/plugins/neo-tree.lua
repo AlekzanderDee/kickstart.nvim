@@ -17,10 +17,20 @@ vim.keymap.set('n', '\\', '<Cmd>Neotree reveal<CR>', { desc = 'NeoTree reveal', 
 
 require('neo-tree').setup {
   filesystem = {
+    follow_current_file = {
+      enabled = true, -- focus the active file in the tree when it changes
+      leave_dirs_open = false, -- close auto-expanded dirs on the way (false = collapse them)
+    },
     window = {
       mappings = {
         ['\\'] = 'close_window',
       },
+    },
+  },
+  buffers = {
+    follow_current_file = {
+      enabled = true,
+      leave_dirs_open = false,
     },
   },
 }
