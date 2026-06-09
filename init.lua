@@ -116,7 +116,6 @@ do
 
   -- Enable mouse mode, can be useful for resizing splits for example!
   vim.o.mouse = 'a'
-
   -- Don't show the mode, since it's already in the status line
   vim.o.showmode = false
 
@@ -385,18 +384,28 @@ do
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
+  -- vim.pack.add { gh 'folke/tokyonight.nvim' }
+  -- ---@diagnostic disable-next-line: missing-fields
+  -- require('tokyonight').setup {
+  --   styles = {
+  --     comments = { italic = false }, -- Disable italics in comments
+  --   },
+  -- }
+  --
+  -- -- Load the colorscheme here.
+  -- -- Like many other themes, this one has different styles, and you could load
+  -- -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
+  -- vim.cmd.colorscheme 'tokyonight-night'
+  --
+  -- vim.pack.add { { src = gh 'catppuccin/nvim', name = 'catppuccin' } }
   ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
-    },
+  vim.pack.add {
+    'https://github.com/ellisonleao/gruvbox.nvim',
   }
 
+  require('gruvbox').setup()
   -- Load the colorscheme here.
-  -- Like many other themes, this one has different styles, and you could load
-  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  vim.cmd.colorscheme 'gruvbox'
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -495,7 +504,14 @@ do
     --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
     --   },
     -- },
-    -- pickers = {}
+    pickers = {
+      buffers = {
+        mappings = {
+          i = { ['<C-d>'] = require('telescope.actions').delete_buffer },
+          n = { ['<C-d>'] = require('telescope.actions').delete_buffer },
+        },
+      },
+    },
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
@@ -778,33 +794,37 @@ do
   require('conform').setup {
     notify_on_error = false,
     format_on_save = function(bufnr)
-      -- You can specify filetypes to autoformat on save here:
-      local enabled_filetypes = {
-        lua = true,
-        python = true,
-        go = true,
-      }
-      if enabled_filetypes[vim.bo[bufnr].filetype] then
-        return { timeout_ms = 500 }
-      else
-        return nil
-      end
+      local enabled_filetypes = { lua = true, python = true, go = true, json = true, xml = true }
+      if enabled_filetypes[vim.bo[bufnr].filetype] then return { timeout_ms = 1500 } end
     end,
-    default_format_opts = {
-      lsp_format = 'fallback', -- Use external formatters if configured below, otherwise use LSP formatting. Set to `false` to disable LSP formatting entirely.
-    },
-    -- You can also specify external formatters in here.
+    default_format_opts = { lsp_format = 'fallback' },
     formatters_by_ft = {
       go = { 'goimports', 'goimports-reviser' },
-      -- rust = { 'rustfmt' },
-      -- Conform can also run multiple formatters sequentially
-      -- python = { "isort", "black" },
-      --
-      -- You can use 'stop_after_first' to run the first available formatter from the list
-      -- javascript = { "prettierd", "prettier", stop_after_first = true },
+    },
+    formatters = {
+      ['goimports-reviser'] = {
+        -- `prepend_args` may be a function — we use it to discover the module
+        -- path from the nearest go.mod at format time, so the "internal" group
+        -- is correct for whichever Go project this buffer belongs to.
+        prepend_args = function(_, ctx)
+          local args = {
+            '-rm-unused', -- belt-and-braces removal of unused
+            '-set-alias', -- add idiomatic aliases where useful
+          }
+          local gomod = vim.fs.find('go.mod', { upward = true, path = ctx.dirname, type = 'file' })[1]
+          if gomod then
+            local first_line = (vim.fn.readfile(gomod, '', 1) or {})[1] or ''
+            local mod = first_line:match '^module%s+(%S+)'
+            if mod then
+              table.insert(args, '-project-name')
+              table.insert(args, mod)
+            end
+          end
+          return args
+        end,
+      },
     },
   }
-
   vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
 end
 
@@ -969,14 +989,15 @@ do
   -- require 'kickstart.plugins.debug'
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
-  require 'kickstart.plugins.neo-tree'
-  -- require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
+  require 'kickstart.plugins.autopairs'
+  -- Disabled: replaced by custom/plugins/neo-tree.lua (adds `Y` to copy paths).
+  -- require 'kickstart.plugins.neo-tree'
+  require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- require 'custom.plugins'
+  require 'custom.plugins'
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
