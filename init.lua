@@ -373,6 +373,7 @@ do
     spec = {
       { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
       { '<leader>t', group = '[T]oggle' },
+      { '<leader>c', group = '[C]opy', mode = { 'n', 'v' } },
       { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
     },
@@ -799,28 +800,25 @@ do
     end,
     default_format_opts = { lsp_format = 'fallback' },
     formatters_by_ft = {
-      go = { 'goimports', 'goimports-reviser' },
+      -- goimports alone does all three on save: adds missing imports, removes
+      -- unused ones, and groups them (stdlib, 3rd-party, local) when given -local.
+      go = { 'goimports' },
     },
     formatters = {
-      ['goimports-reviser'] = {
-        -- `prepend_args` may be a function — we use it to discover the module
-        -- path from the nearest go.mod at format time, so the "internal" group
-        -- is correct for whichever Go project this buffer belongs to.
+      goimports = {
+        -- Discover the module path from the nearest go.mod at format time and pass
+        -- it as -local, so the buffer's own module is grouped last. (Swap in a fixed
+        -- 'github.com/material-bank' if you'd rather group ALL org code as local
+        -- instead of only the current module.) conform's built-in args already add
+        -- `-srcdir $DIRNAME`, which keeps stdin-based add-missing-imports working.
         prepend_args = function(_, ctx)
-          local args = {
-            '-rm-unused', -- belt-and-braces removal of unused
-            '-set-alias', -- add idiomatic aliases where useful
-          }
           local gomod = vim.fs.find('go.mod', { upward = true, path = ctx.dirname, type = 'file' })[1]
           if gomod then
             local first_line = (vim.fn.readfile(gomod, '', 1) or {})[1] or ''
             local mod = first_line:match '^module%s+(%S+)'
-            if mod then
-              table.insert(args, '-project-name')
-              table.insert(args, mod)
-            end
+            if mod then return { '-local', mod } end
           end
-          return args
+          return {}
         end,
       },
     },

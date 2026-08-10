@@ -41,6 +41,7 @@ require('dap-go').setup {
       if vim.fn.executable(mason_delve) == 1 then return mason_delve end
       return vim.fn.exepath 'dlv' ~= '' and vim.fn.exepath 'dlv' or 'dlv'
     end)(),
+    output_mode = 'remote',
   },
 }
 
