@@ -45,6 +45,28 @@ require('dap-go').setup {
   },
 }
 
+-- Python: host debugpy with the project's own .venv interpreter, so each repo
+-- debugs against the dependencies it actually declares. `config.cwd` comes from
+-- launch.json; fall back to walking up from nvim's cwd, then to PATH.
+local function python_for(config)
+  local start = (config and config.cwd) or vim.fn.getcwd()
+  local venv = vim.fs.find('.venv', { upward = true, type = 'directory', path = start })[1]
+  if venv then
+    local py = venv .. '/bin/python'
+    if vim.fn.executable(py) == 1 then return py end
+  end
+  return vim.fn.exepath 'python3'
+end
+
+dap.adapters.python = function(cb, config)
+  cb {
+    type = 'executable',
+    command = python_for(config),
+    args = { '-m', 'debugpy.adapter' },
+  }
+end
+dap.adapters.debugpy = dap.adapters.python
+
 -- Override nvim-dap's built-in launch.json provider so it walks UPWARD
 -- from the current cwd instead of only checking `<cwd>/.vscode/launch.json`.
 -- This makes `<leader>dc` find configs after `:cd`-ing into a sub-package.
@@ -56,7 +78,22 @@ dap.providers.configs['dap.launch.json'] = function()
     vim.notify('Failed to parse ' .. launchjs .. ': ' .. tostring(configs), vim.log.levels.WARN)
     return {}
   end
-  return configs
+  -- nvim-dap expands `${workspaceFolder}` to nvim's cwd, which is wrong the
+  -- moment you `:cd` into a sub-package -- the very case this upward walk
+  -- exists for. `${projectRoot}` is the directory holding `.vscode/`, so it
+  -- stays correct from anywhere in the tree. Metatables are preserved because
+  -- nvim-dap hangs `${input:...}` resolution off them.
+  local root = vim.fs.dirname(vim.fs.dirname(launchjs))
+  local function subst(value)
+    if type(value) == 'string' then return (value:gsub('%${projectRoot}', root)) end
+    if type(value) == 'table' then
+      local out = {}
+      for k, v in pairs(value) do out[k] = subst(v) end
+      return setmetatable(out, getmetatable(value))
+    end
+    return value
+  end
+  return subst(configs)
 end
 
 -- keymaps (lazy.nvim's `keys =` doesn't exist under vim.pack — bind directly)
