@@ -795,7 +795,7 @@ do
   require('conform').setup {
     notify_on_error = false,
     format_on_save = function(bufnr)
-      local enabled_filetypes = { lua = true, python = true, go = true, json = true, xml = true }
+      local enabled_filetypes = { lua = true, python = true, go = true, json = true, xml = true, sql = true }
       if enabled_filetypes[vim.bo[bufnr].filetype] then return { timeout_ms = 1500 } end
     end,
     default_format_opts = { lsp_format = 'fallback' },
@@ -803,6 +803,14 @@ do
       -- goimports alone does all three on save: adds missing imports, removes
       -- unused ones, and groups them (stdlib, 3rd-party, local) when given -local.
       go = { 'goimports' },
+      -- ruff is already installed (mason.lua) and attaches as a lint-only LSP;
+      -- formatting is deliberately left to conform here. ruff_format is ruff's
+      -- Black-compatible formatter. Add 'ruff_organize_imports' before it if you
+      -- also want import sorting on save (ruff already owns organize-imports).
+      python = { 'ruff_format' },
+      -- pg_format (pgFormatter) — zero-config, Postgres-oriented, matching the
+      -- postgres-language-server in the stack. Package 'pgformatter' in mason.lua.
+      sql = { 'pg_format' },
     },
     formatters = {
       goimports = {
